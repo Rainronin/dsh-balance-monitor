@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "outDir": "lib",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "types": []
+  },
+  "include": ["src/client.tsx"]
+}

@@ -1,0 +1,17 @@
+# 本包（dsh-balance-monitor）导出的 patch 层：
+# 向配置树插入一个插件条目，config 全部有默认值，用户可在 profile 的
+# cordis.patch.yml 中按 id 覆盖。
+- insert:
+    - id: balance-monitor
+      name: dsh-balance-monitor
+      config:
+        # 凭证引用名：默认复用 dsh 里已配置的 DeepSeek key（零配置）
+        apiKeyEnv: DEEPSEEK_API_KEY
+        # 缓存有效期：30s 内不重复请求官方接口
+        cacheTtlMs: 30000
+        # 后台轮询间隔：30s
+        pollIntervalMs: 30000
+        # 每轮对话是否把余额快照注入模型上下文
+        injectEveryTurn: true
+        # 官方接口请求超时（毫秒）
+        requestTimeoutMs: 5000

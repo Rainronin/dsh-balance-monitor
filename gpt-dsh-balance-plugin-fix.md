@@ -1,0 +1,186 @@
+# DSH Balance Monitor 插件启动故障修复记录
+
+## 补充：徽章不显示余额的根因与修复（2026-08-15，第二轮诊断）
+
+### 故障现象
+
+页面加载正常、`.bm-crt` 徽章渲染成功，但徽章不显示余额；
+`POST /api/balance/get` 返回 **404 not found**，而官方端点
+`/api/goals/edit`、`/api/dynamicCordisRunner/inventory` 均被 RPC 层正常认领。
+
+### 根因
+
+api-gateway 的端点认领（`claimsEndpoint`）按两条路径：
+
+1. **strict**：typert-loader 扫描 loader 行所在包导出的 `./typert` 元数据（官方
+   dsh-goal、dsh-cordis-host-runner 都走这条路径）；
+2. **SRC 兜底**：运行时反射扫描 `ctx.reflect.props` 上的 `@Remote` 装饰器标记。
+
+本插件最初走 SRC 路径，且服务通过「主插件 apply → `ctx.plugin(服务类)`」挂载，
+服务注册在**主插件 fiber 的子 ctx**；SRC 扫描的 `ctx.get('balance')` 在该嵌套层级
+解析不到服务 → claims 不含 `balance/*` → 404。官方服务类（GoalService、
+DynamicCordisRunnerService）都是 **loader 行直接挂载 default 导出的服务类**，
+注册在 entry ctx 上，因此可被解析。
+
+### 修复
+
+1. `src/index.ts`：删除 apply 包装，`export default BalanceRemoteService`
+   （loader 的 ModuleLoader 会做 `exports.default ?? exports` 提升，直接以
+   entry ctx 构造服务类），并补 `static Config` 使 loader 校验 config 时应用
+   schemastery 默认值。
+2. 新增 `typert-host.js`：手写官方 TYPERT host-face 元数据（zod v4 schema +
+   invocations，遵循 typert-loader 的 validateTypertManifest 契约），
+   package.json 增加 `exports["./typert"]`。typert-loader 在 loader 行挂载时
+   自动导入并注册 strict 定义——与官方包同路径，无 SRC 反射的脆弱性。
+3. 清理构建链隐患：tsc（`type: module` + CommonJS 目标）可能输出 `lib/client.cjs`，
+   删除该陈旧产物；wrap-client 固定读取 tsc 的 `lib/client.js` 后原地包壳。
+
+### 验证
+
+- `diagnose.mjs`：工具注册数 = 1（ds_balance）、balance 服务可见
+- headless 冒烟：`ds_balance` 正常返回余额（CNY 33.74），typert-loader 接受 manifest
+- 待用户重启 web 后验证：`POST /api/balance/get` 应返回 200 + 徽章显示余额
+
+## 故障现象
+
+DSH 重启后，Web UI 无法正常启动，并显示：
+
+```text
+failed to import loader entry ... (dsh-balance-monitor):
+client-modules: bundle /plugins/dsh-balance-monitor/client.js?... loaded without registering
+"dsh-balance-monitor" via __ModuleLoader__.load
+```
+
+## 根因
+
+故障包含两个连续问题。
+
+### 1. 构建脚本包装了陈旧的客户端文件
+
+`tsc -p tsconfig.client.json` 实际将最新客户端代码输出到 `lib/client.js`，但
+`wrap-client.mjs` 一直读取旧的 `lib/client.cjs`。
+
+旧文件中的 JSX 编译结果已经损坏，生成的最终 bundle 存在语法错误：
+
+```text
+SyntaxError: Unexpected token '>'
+```
+
+浏览器虽然完成了脚本请求，但脚本无法执行，因此最外层的
+`window.__ModuleLoader__.load(...)` 没有运行，最终被 DSH 报告为“加载后未注册”。
+
+### 2. Remote 描述符使用了非严格 codec
+
+修复 bundle 语法后，DSH 继续报告：
+
+```text
+client api: generated Remote balance/get field "result" has no strict codec
+```
+
+插件为 `balance/get` 和 `balance/refresh` 使用了 `src-json` codec，而当前 DSH
+客户端 API 要求 Remote 返回值携带严格 codec 和运行时 schema。
+
+## 修复内容
+
+1. 修改 `wrap-client.mjs`，直接读取 `tsc` 刚生成的 `lib/client.js`，再原地包装为
+   `window.__ModuleLoader__.load({ id, factory })` 格式。
+2. 为 `BalanceWire` 增加严格的运行时结构校验，并让两个 Remote 描述符复用该 codec。
+3. 新增 `verify-client.mjs`，在 Node VM 中执行最终 bundle，验证：
+   - 注册 ID 为 `dsh-balance-monitor`；
+   - 两个 Remote 返回值均使用严格 codec；
+   - 合法余额数据可以通过；
+   - 字段类型错误的数据会被拒绝。
+4. 将客户端自检接入 `npm run build`，避免以后再次生成“构建成功但 bundle 无法执行”的产物。
+
+## 涉及文件
+
+- `wrap-client.mjs`
+- `src/client.tsx`
+- `src/types.ts`
+- `verify-client.mjs`
+- `package.json`
+- 构建生成的 `lib/client.js`
+
+## 验证结果
+
+执行：
+
+```powershell
+npm run build
+```
+
+结果：TypeScript 编译、bundle 包装和客户端自检全部通过。
+
+随后重新加载 `http://127.0.0.1:8808/`：
+
+- 页面中不再出现 `Failed to load plugins`；
+- `dsh-balance-monitor` 使用新的 bundle revision；
+- `.bm-crt` 余额徽章成功渲染 1 个实例。
+
+## 参考文档
+
+- [DSH：第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
+- [DSH：Client 模块](https://deepseek-harness.github.io/deepseek-harness/reference/subsystems/client-modules)
+
+## 第三段：徽章 NO SIGNAL + `v[w] is not a function`（2026-08-15）
+
+### 根因
+
+Remote 调用的真实返回是 **RPC 信封** `{ ok, value | error }`（client 侧
+`RemoteNamespaceService.invoke` 返回 `{ ok: true, value }` 或 `{ ok: false, error }`），
+而徽章组件把信封直接当作 `BalanceWire`：
+
+- 失败信封的 `error` 是对象 → `statusCodeOf` 里 `wire.error.includes(...)` 抛
+  **`TypeError: v[w] is not a function`**（控制台报错来源）；
+- 成功信封没有 `infos` 字段 → `primaryInfo` 渲染崩溃。
+
+### 修复
+
+`src/client.tsx`：声明 RPC 信封类型（`RemoteEnvelope`）；`unwrapEnvelope` 解包为
+组件面向的 `BalanceWire`（失败信封转错误态数据）；`statusCodeOf` 对非字符串
+`error` 防御。
+
+### 验证
+
+- tsc / wrap / verify 全绿
+- probe（正确信封格式）证实 host 端 strict 链路全通：`POST /api/balance/get` 返回
+  `200 { ok: true, value: { CNY 33.47, staleMs 0 } }`
+- 用户刷新浏览器页面即可加载新 client bundle（bundle rev 变化，无需重启 dsh）
+
+## 第四段（终局）：徽章仍 NO SIGNAL —— 浏览器 remote 命名空间链路失效（2026-08-15）
+
+### 诊断过程（浏览器 CDP 实测）
+
+- 页面内手动 fetch 官方 RPC 端点 → **200 + 正常 BalanceWire**（host 全通）
+- 点 SYNC 按钮：fetch/WebSocket 均无 balance 流量、控制台零日志——
+  组件调用在 `remote.balance.get()` 客户端内部**静默失败**（未发出任何请求）
+
+### 根因
+
+浏览器侧 `remote` 命名空间服务链（`$mount` 贡献 → `RemoteNamespaceService` →
+`ownerCtx.get('connection')` → 传输）在本机环境下静默失效（疑似 client 侧
+HMR/热重载导致 mount token 失效或命名空间服务未挂载；官方 goal 走 monorepo
+内部生成的 apiproxy 域，无此问题）。第三方手写贡献在该链路上的可靠性无官方保证。
+
+### 修复（最终方案）
+
+client 半放弃 `$mount` 贡献与 remote 命名空间，改为 **官方 RPC 公开协议直调**：
+
+```ts
+fetch(`/api/balance/${method}`, {
+  method: 'POST',
+  body: JSON.stringify({ type: 'client-request', rpcId, method: `balance/${method}`, payload: { args: {} } }),
+})
+```
+
+该协议即 dsh-host-apiproxy fetch carrier 的公开信封（与连接层一致），
+请求经 api-gateway 的 strict 注册（./typert 元数据）认领到 host 余额服务。
+host 端 TYPERT strict 注册保留不变。
+
+`verify-client.mjs` 升级为全链路验证：bundle 注册 → slot 挂载 →
+`inject.get()` 走 RPC 信封直调 → 解出 BalanceWire。
+
+### 最终实测（浏览器 CDP）
+
+刷新页面后徽章显示：**`▸ BALANCE CNY ¥32.81 · LINK OK`**（绿色辉光），
+SYNC 按钮与 30s 轮询正常工作，控制台无报错。M2 完成。
