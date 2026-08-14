@@ -113,15 +113,7 @@ dsh plugin --profile web add .   # link 安装
 由 dsh-client-modules 服务为 `/plugins/<id>/client.js`）；`verify-client.mjs`
 在 VM 中执行最终 bundle，全链路验证注册、slot 挂载与 RPC 直调协议。
 
-## 设计文档
+## 延伸阅读
 
 - [`UI设计构思.md`](UI设计构思.md)：Matrix 视觉规范（磷光 CRT token 系统）
-- [`开发计划.md`](开发计划.md)：需求拆解与里程碑
-- [`排障记录.md`](排障记录.md)：四轮排障记录
-
-## 路线图
-
-- [x] M1 会话内可查可见（`ds_balance` 工具 + 每轮注入 + 30s 轮询）
-- [x] M2 Matrix 风格侧边栏徽章（`sidebar.footer.action` slot + SYNC 手动刷新按钮）
-- [x] M3 分发（GitHub 直装 `dsh plugin add github:Rainronin/dsh-balance-monitor`）
-- [ ] 可选：npm 发布（需要 npm 账号）
+- [`排障记录.md`](排障记录.md)：开发排障四轮记录（SRC 反射失效、RPC 信封、remote 命名空间链路等）
