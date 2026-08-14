@@ -92,7 +92,7 @@ browser 半（client.tsx → lib/client.js，__ModuleLoader__ 注册壳）
 第三方 Typert Remote 客户端链路（`$mount` 贡献 → 命名空间服务）在本机环境实测
 静默失效，故徽章改用官方 RPC 公开协议直调（dsh-host-apiproxy fetch carrier 信封），
 host 端严格保留官方 TYPERT strict 注册路径。排障全过程见
-[`gpt-dsh-balance-plugin-fix.md`](gpt-dsh-balance-plugin-fix.md)。
+[`排障记录.md`](排障记录.md)。
 
 ## 开发
 
@@ -112,7 +112,7 @@ dsh plugin --profile web add .   # link 安装
 
 - [`UI设计构思.md`](UI设计构思.md)：Matrix 视觉规范（磷光 CRT token 系统）
 - [`开发计划.md`](开发计划.md)：需求拆解与里程碑
-- [`gpt-dsh-balance-plugin-fix.md`](gpt-dsh-balance-plugin-fix.md)：四轮排障记录
+- [`排障记录.md`](排障记录.md)：四轮排障记录
 
 ## 路线图
 
