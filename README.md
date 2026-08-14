@@ -106,8 +106,7 @@ browser half (client.tsx → lib/client.js, wrapped in the official __ModuleLoad
 The third-party Typert Remote client path (`$mount` contribution → namespace
 service) failed silently in practice, so the badge talks the official RPC wire
 protocol directly (dsh-host-apiproxy fetch-carrier envelope), while the host
-side keeps the official TYPERT strict registration. Full debugging history:
-[`排障记录.md`](排障记录.md) (Chinese).
+side keeps the official TYPERT strict registration.
 
 ### Development
 
@@ -128,7 +127,6 @@ wire protocol end to end.
 ### Further reading
 
 - [`UI设计构思.md`](UI设计构思.md) (Chinese): Matrix visual spec (phosphor CRT token system)
-- [`排障记录.md`](排障记录.md) (Chinese): four rounds of debugging notes (SRC reflection, RPC envelope, remote namespace chain, …)
 
 ---
 
@@ -229,8 +227,7 @@ browser 半（client.tsx → lib/client.js，__ModuleLoader__ 注册壳）
 
 第三方 Typert Remote 客户端链路（`$mount` 贡献 → 命名空间服务）在本机环境实测
 静默失效，故徽章改用官方 RPC 公开协议直调（dsh-host-apiproxy fetch carrier 信封），
-host 端严格保留官方 TYPERT strict 注册路径。排障全过程见
-[`排障记录.md`](排障记录.md)。
+host 端严格保留官方 TYPERT strict 注册路径。
 
 ### 开发
 
@@ -249,4 +246,3 @@ dsh plugin --profile web add .   # link 安装
 ### 延伸阅读
 
 - [`UI设计构思.md`](UI设计构思.md)：Matrix 视觉规范（磷光 CRT token 系统）
-- [`排障记录.md`](排障记录.md)：开发排障四轮记录（SRC 反射失效、RPC 信封、remote 命名空间链路等）
