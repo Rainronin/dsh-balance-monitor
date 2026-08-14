@@ -4,6 +4,8 @@
 
 A DeepSeek Harness plugin that monitors your DeepSeek API account balance: official `/user/balance` snapshots, in-session queries, per-turn context injection, and a **Matrix-style sidebar badge**.
 
+![运行截图](assets/screenshot.png)
+
 ---
 
 <a id="english"></a>
