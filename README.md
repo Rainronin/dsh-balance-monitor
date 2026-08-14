@@ -16,15 +16,20 @@ DeepSeek API 账户余额监测插件（DeepSeek Harness）：官方 `/user/bala
 ## 安装
 
 ```sh
-# 本地安装（在插件仓库目录内执行，link 形式，改代码重启 web 即生效）
+# 方式一：GitHub 直装（推荐）
+dsh plugin --profile web add github:Rainronin/dsh-balance-monitor
+
+# 方式二：本地 clone 后 link 安装（改代码即时生效，适合二次开发）
+git clone https://github.com/Rainronin/dsh-balance-monitor.git
+cd dsh-balance-monitor
 dsh plugin --profile web add .
 
-# 或从 npm 安装（发布后）
-dsh plugin --profile web add dsh-balance-monitor
-
-# 首次启动后浏览器刷新即可；host 半改动需重启
+# host 半改动后重启生效
 dsh web
 ```
+
+> git 托管插件若被 pnpm 拦截 prepare 构建脚本，按提示把键加进
+> `$DSH_HOME/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds` 再重跑。
 
 安装后插件自动进入 `dsh.profile.bundles` 层列表；检查配置树：
 
@@ -118,4 +123,5 @@ dsh plugin --profile web add .   # link 安装
 
 - [x] M1 会话内可查可见（`ds_balance` 工具 + 每轮注入 + 30s 轮询）
 - [x] M2 Matrix 风格侧边栏徽章（`sidebar.footer.action` slot + SYNC 手动刷新按钮）
-- [ ] M3 打包发布到 npm
+- [x] M3 分发（GitHub 直装 `dsh plugin add github:Rainronin/dsh-balance-monitor`）
+- [ ] 可选：npm 发布（需要 npm 账号）
