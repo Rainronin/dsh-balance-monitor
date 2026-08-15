@@ -16,7 +16,7 @@ A DeepSeek Harness plugin that monitors your DeepSeek API account balance: offic
 | Capability | Description |
 |---|---|
 | 💬 In-session query | `ds_balance` tool: the agent can fetch the official balance snapshot anytime (`force: true` bypasses the cache) |
-| 🔄 Per-turn injection | Fresh balance is injected into the model context before every turn (cache-only read, never blocks the conversation) |
+| 🔄 Optional per-turn injection | Fresh balance can be injected into the model context before every turn (off by default — the badge + `ds_balance` tool already cover it; cache-only read, never blocks the conversation) |
 | 🖥️ Sidebar badge | Matrix green-phosphor CRT style: `▸ BALANCE CNY ¥32.81 · LINK OK`, SYNC button for on-demand refresh, 30s auto polling, rail state collapses into a status lamp |
 | 🔐 Zero-config key | Reuses `DEEPSEEK_API_KEY` from dsh's credential service (never written to disk, never logged) |
 | 💱 Multi-currency | CNY/USD both listed (CNY first); amounts stay strings end-to-end, no float math |
@@ -66,7 +66,7 @@ single status lamp (green = LINK OK, amber = degraded).
 | `apiKeyEnv` | `DEEPSEEK_API_KEY` | Credential reference (env var name); change for a different account |
 | `cacheTtlMs` | `30000` | Cache lifetime in ms |
 | `pollIntervalMs` | `30000` | Background polling interval in ms |
-| `injectEveryTurn` | `true` | Whether to inject the balance into context every turn |
+| `injectEveryTurn` | `false` | Whether to inject the balance into context every turn (opt-in; the badge and `ds_balance` tool are on by default) |
 | `requestTimeoutMs` | `5000` | Official-API request timeout in ms |
 
 Override in the profile's `cordis.patch.yml`:
@@ -133,14 +133,14 @@ wire protocol end to end.
 <a id="中文"></a>
 ## 中文
 
-DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + 每轮上下文注入 + **Matrix 风格侧边栏徽章**。
+DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + Matrix 风格侧边栏徽章。
 
 ### 功能
 
 | 能力 | 说明 |
 |---|---|
 | 💬 会话内查询 | `ds_balance` 工具：agent 随时可查官方余额快照（`force: true` 穿透缓存） |
-| 🔄 每轮注入 | 每轮对话前自动把最新余额放进模型上下文（只读缓存，绝不阻塞对话） |
+| 🔄 每轮注入（可选） | 默认关闭。开启后每轮对话前自动把最新余额放进模型上下文（只读缓存，绝不阻塞对话）——徽章与工具已默认覆盖该信息 |
 | 🖥️ 侧边栏徽章 | Matrix 绿磷光 CRT 风格：`▸ BALANCE CNY ¥32.81 · LINK OK`，SYNC 按钮手动穿透刷新，30s 自动轮询，折叠态退化为状态灯 |
 | 🔐 零配置密钥 | 复用 dsh 凭证服务里的 `DEEPSEEK_API_KEY`（不落盘、不打印、不缓存） |
 | 💱 多币种 | CNY/USD 全列（CNY 优先），金额全程字符串透传，无浮点运算 |
@@ -188,7 +188,7 @@ dsh --profile web --dump-config
 | `apiKeyEnv` | `DEEPSEEK_API_KEY` | 凭证引用名（环境变量名），多账号时改这里 |
 | `cacheTtlMs` | `30000` | 缓存有效期（毫秒） |
 | `pollIntervalMs` | `30000` | 后台轮询间隔（毫秒） |
-| `injectEveryTurn` | `true` | 是否每轮注入余额到模型上下文 |
+| `injectEveryTurn` | `false` | 是否每轮注入余额到模型上下文（默认关闭，按需开启） |
 | `requestTimeoutMs` | `5000` | 官方接口请求超时（毫秒） |
 
 覆盖示例（profile 的 `cordis.patch.yml`）：
@@ -215,7 +215,7 @@ dsh --profile web --dump-config
 host 半（Node）
   BalanceRemoteService（服务键 balance，loader 行直接挂载 default 导出类）
   ├─ 凭证解析 → GET https://api.deepseek.com/user/balance → 30s TTL 缓存 + 串行化
-  ├─ ds_balance 工具 + agent/pre-step 每轮注入 + 30s 轮询
+  ├─ ds_balance 工具 + 30s 轮询（每轮注入为可选项，默认关闭）
   └─ typert-host.js：手写 TYPERT strict 元数据（./typert 导出，typert-loader 注册，
       api-gateway 按 strict 定义认领 /api/balance/* 端点）
 

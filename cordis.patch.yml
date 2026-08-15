@@ -11,7 +11,8 @@
         cacheTtlMs: 30000
         # 后台轮询间隔：30s
         pollIntervalMs: 30000
-        # 每轮对话是否把余额快照注入模型上下文
-        injectEveryTurn: true
+        # 每轮对话是否把余额快照注入模型上下文（默认关闭：
+        # 侧边栏徽章常驻 + ds_balance 工具已足够，注入重复且费 token）
+        injectEveryTurn: false
         # 官方接口请求超时（毫秒）
         requestTimeoutMs: 5000
