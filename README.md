@@ -2,7 +2,7 @@
 
 [English](#english) | [中文](#中文)
 
-A DeepSeek Harness plugin that monitors your DeepSeek API account balance: official `/user/balance` snapshots, in-session queries, per-turn context injection, a **Matrix/native dual-style sidebar badge**, and Beijing-time **peak/off-peak pricing status**.
+A DeepSeek Harness plugin that monitors your DeepSeek API account balance: official `/user/balance` snapshots, in-session queries, Beijing-time **peak/off-peak pricing status**, and a **Matrix/native dual-style sidebar badge**.
 
 | Matrix CRT 风格 | dsh 原生风格 |
 |---|---|
@@ -155,7 +155,7 @@ codec positive/negative cases).
 <a id="中文"></a>
 ## 中文
 
-DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + Matrix/原生双风格侧边栏徽章 + 北京时间峰谷计价状态。
+DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + 北京时间峰谷计价状态 + Matrix/原生双风格侧边栏徽章。
 
 ### 功能
 

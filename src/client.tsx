@@ -5,7 +5,8 @@
  * - 数据通道：官方 RPC 公开协议直调（POST /api/balance/<method>，
  *   client-request 信封，经 api-gateway 的 strict 注册认领到 host 余额服务）
  * - 视觉：1999 年绿磷光 CRT 终端；点 UI 按钮可切换为贴近 dsh 原生风格的样式。
- * - 峰谷计价：host 按北京时间计算阶段，徽章展示 PEAK/IDLE/FLAT，高峰期倒计时到空闲。
+ * - 峰谷计价：host 按北京时间计算阶段，徽章展示 `高峰 HH:MM:SS` / `空闲`，
+ *   高峰期倒计时到空闲（旧 host 进程的 flat 兼容值显示 `生效前 08-17`）。
  */
 import { useEffect, useRef, useState } from 'react'
 // 仅引入类型：拿到 SlotMap 的 merge 面与 SlotComponent
@@ -143,7 +144,7 @@ function formatDuration(ms: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
 
-/** 状态栏计价文本；峰谷未生效时显示 FLAT */
+/** 状态栏计价文本；旧 host 进程的 flat 兼容值显示 `生效前 08-17` */
 function pricingText(wire: BalanceClientWire | null, now: number): string | null {
   const pricing = wire?.pricing
   if (pricing === undefined) return null
