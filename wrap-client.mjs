@@ -8,12 +8,15 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+// 注册壳 id 必须与 npm 包名一致（dsh-client-modules 按包名核对注册）
+const pkgName = JSON.parse(readFileSync('package.json', 'utf8')).name
+
 // tsc 先把 client.tsx 编译为 lib/client.js，再原地包装成浏览器 bundle
 const body = readFileSync('lib/client.js', 'utf8')
 const indented = body.split('\n').map((line) => line.trim() === '' ? '' : '\t\t' + line).join('\n')
-const wrapper = `/* 由 dsh-balance-monitor 的 wrap-client 生成：浏览器半通过官方 __ModuleLoader__ 注册壳自注册。 */
+const wrapper = `/* 由 ${pkgName} 的 wrap-client 生成：浏览器半通过官方 __ModuleLoader__ 注册壳自注册。 */
 window.__ModuleLoader__.load({
-\tid: "dsh-balance-monitor",
+\tid: "${pkgName}",
 \tfactory: (require) => {
 \t\tvar module = { exports: {} };
 \t\tvar exports = module.exports;

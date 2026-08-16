@@ -1,9 +1,9 @@
-# 本包（dsh-balance-monitor）导出的 patch 层：
+# 本包（@rainronin/dsh-balance-monitor）导出的 patch 层：
 # 向配置树插入一个插件条目，config 全部有默认值，用户可在 profile 的
 # cordis.patch.yml 中按 id 覆盖。
 - insert:
     - id: balance-monitor
-      name: dsh-balance-monitor
+      name: '@rainronin/dsh-balance-monitor'
       config:
         # 凭证引用名：默认复用 dsh 里已配置的 DeepSeek key（零配置）
         apiKeyEnv: DEEPSEEK_API_KEY

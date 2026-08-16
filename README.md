@@ -29,10 +29,13 @@ A DeepSeek Harness plugin that monitors your DeepSeek API account balance: offic
 ### Installation
 
 ```sh
-# Option 1: install straight from GitHub (recommended)
+# Option 1: install from npm (recommended)
+dsh plugin --profile web add @rainronin/dsh-balance-monitor
+
+# Option 2: install straight from GitHub
 dsh plugin --profile web add github:Rainronin/dsh-balance-monitor
 
-# Option 2: clone and link-install locally (instant reload while developing)
+# Option 3: clone and link-install locally (instant reload while developing)
 git clone https://github.com/Rainronin/dsh-balance-monitor.git
 cd dsh-balance-monitor
 dsh plugin --profile web add .
@@ -173,10 +176,13 @@ DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/bal
 ### 安装
 
 ```sh
-# 方式一：GitHub 直装（推荐）
+# 方式一：npm 直装（推荐）
+dsh plugin --profile web add @rainronin/dsh-balance-monitor
+
+# 方式二：GitHub 直装
 dsh plugin --profile web add github:Rainronin/dsh-balance-monitor
 
-# 方式二：本地 clone 后 link 安装（改代码即时生效，适合二次开发）
+# 方式三：本地 clone 后 link 安装（改代码即时生效，适合二次开发）
 git clone https://github.com/Rainronin/dsh-balance-monitor.git
 cd dsh-balance-monitor
 dsh plugin --profile web add .

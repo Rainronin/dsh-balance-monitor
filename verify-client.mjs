@@ -45,7 +45,7 @@ vm.runInNewContext(readFileSync('lib/client.js', 'utf8'), {
     }
   },
 })
-assert.equal(registration?.id, 'dsh-balance-monitor')
+assert.equal(registration?.id, JSON.parse(readFileSync('package.json', 'utf8')).name)
 
 // 执行 factory，拿到模块导出
 const api = registration.factory((id) => {

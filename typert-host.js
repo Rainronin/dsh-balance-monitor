@@ -44,7 +44,7 @@ const balanceClientWireCodec = {
 }
 
 export const TYPERT = {
-  package: 'dsh-balance-monitor',
+  package: '@rainronin/dsh-balance-monitor',
   face: 'host',
   schemas: [],
   invocations: [
