@@ -5,11 +5,12 @@
  * 由 dsh-client-modules 服务为 /plugins/<id>/client.js。
  * 纯字符串处理，无任何子进程依赖。
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 // tsc 先把 client.tsx 编译为 lib/client.js，再原地包装成浏览器 bundle
 const body = readFileSync('lib/client.js', 'utf8')
-const indented = body.split('\n').map((line) => '\t\t' + line).join('\n')
+const indented = body.split('\n').map((line) => line.trim() === '' ? '' : '\t\t' + line).join('\n')
 const wrapper = `/* 由 dsh-balance-monitor 的 wrap-client 生成：浏览器半通过官方 __ModuleLoader__ 注册壳自注册。 */
 window.__ModuleLoader__.load({
 \tid: "dsh-balance-monitor",
@@ -22,4 +23,7 @@ ${indented}
 });
 `
 writeFileSync('lib/client.js', wrapper)
+// types.ts 是纯类型模块；client 的 CommonJS 编译会输出无用的 lib/types.js，
+// 且与 package.json 的 "type": "module" 冲突，构建后移除。
+rmSync(fileURLToPath(new URL('./lib/types.js', import.meta.url)), { force: true })
 console.log(`lib/client.js wrapped (${wrapper.length} bytes)`)

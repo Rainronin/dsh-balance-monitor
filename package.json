@@ -1,7 +1,7 @@
 {
   "name": "dsh-balance-monitor",
   "version": "0.1.0",
-  "description": "DeepSeek Harness 插件：DeepSeek API 余额实时监测（官方 /user/balance 快照 + ds_balance 工具 + 每轮注入 + Matrix 侧边栏徽章）",
+  "description": "DeepSeek Harness 插件：DeepSeek API 余额实时监测（官方 /user/balance 快照 + ds_balance 工具 + 峰谷计价状态 + Matrix/原生双风格侧边栏徽章）",
   "keywords": [
     "dsh",
     "deepseek",
@@ -27,9 +27,11 @@
       "default": "./lib/index.js"
     },
     "./client": {
+      "types": "./lib/client.d.ts",
       "default": "./lib/client.js"
     },
     "./typert": {
+      "types": "./typert-host.d.ts",
       "default": "./typert-host.js"
     },
     "./package.json": "./package.json"
@@ -37,10 +39,15 @@
   "files": [
     "lib",
     "typert-host.js",
-    "cordis.patch.yml"
+    "typert-host.d.ts",
+    "cordis.patch.yml",
+    "assets",
+    "UI设计构思.md"
   ],
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.client.json && node wrap-client.mjs && node verify-client.mjs"
+    "clean": "node clean.mjs",
+    "build": "npm run clean && tsc && tsc -p tsconfig.client.json && node wrap-client.mjs && node verify-client.mjs && node verify-typert.mjs",
+    "prepack": "npm run build"
   },
   "dsh": {
     "bundle": {
@@ -64,19 +71,13 @@
     "@deepseek-ai/dsh-credentials": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-api-gateway": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-api-remotes": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-sidebar": "^0.1.0-rc.6",
     "react": "^18.2.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
-    "pnpm": "^10.0.0",
-    "esbuild-wasm": "^0.25.0",
     "@types/react": "~18.3.1",
     "@deepseek-ai/cordis-plugin-timer": "^1.1.3"
   }

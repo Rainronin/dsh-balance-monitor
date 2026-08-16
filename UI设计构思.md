@@ -1,6 +1,6 @@
-# Matrix 风格 UI 设计构思（dsh-balance-monitor）
+# Matrix / 原生双风格 UI 设计构思（dsh-balance-monitor）
 
-> 设计任务：余额徽章的 Web UI（侧边栏 `sidebar.footer.action` 插槽）做成黑客帝国式复古美学。
+> 设计任务：余额徽章的 Web UI（侧边栏 `sidebar.footer.action` 插槽）默认做成黑客帝国式复古美学，并提供一个按钮切换到贴近 dsh 原生 UI 的样式。
 > 设计参考物不是"Matrix 海报"，而是 **1999 年的绿磷光 CRT 终端**：P1 磷光余辉、扫描线、单色字符、琥珀告警灯。Matrix 只是这套物质感的出圈符号。
 
 ---
@@ -22,15 +22,15 @@
 | `--matrix-phosphor` | `#00FF41` | 主磷光绿：余额数字、标题 |
 | `--matrix-dim` | `#1E7A38` | 弱化绿：标签、分隔线、次要币种 |
 | `--matrix-pale` | `#B5FFC4` | 辉光核心色：text-shadow 内层、hover 高亮 |
-| `--matrix-amber` | `#FFB000` | 琥珀告警：NO SIGNAL / NO KEY / 异常态（CRT 时代的对比警示色） |
+| `--matrix-amber` | `#FFB000` | 琥珀告警：`无信号` / `未配置密钥` / 异常态（CRT 时代的对比警示色） |
 
 ### 2.2 字体
 
 - **唯一字体族**：系统等宽栈 `ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace`——终端气质，零外部字体依赖（插件不能假设网络加载字体）。
 - 角色区分靠**大小写/字距/粗细**，不靠换字体：
-  - 标题 `▸ BALANCE`：12px、全大写、letter-spacing 0.2em、`--matrix-dim`
-  - 余额大数字：20px、`--matrix-phosphor`、`font-variant-numeric: tabular-nums`、letter-spacing 0.05em
-  - 状态行：11px、全大写、`--matrix-dim`/`--matrix-amber`
+  - 标题 `▸ 余额`：11px、全大写、letter-spacing 0.2em、`--matrix-dim`
+  - 余额大数字：16px、`--matrix-phosphor`、`font-variant-numeric: tabular-nums`、letter-spacing 0.05em
+  - 状态行：10-11px、全大写、`--matrix-dim`/`--matrix-amber`
 - 徽章内所有文字全大写 + 等宽 → 像终端口令，不像网页文案。
 
 ### 2.3 布局概念（ASCII 线框）
@@ -38,18 +38,19 @@
 ```
 wide 态（侧边栏展开，徽章 = 一个终端读数条）:
 ┌───────────────────────────────────┐
-│ ▸ BALANCE ──────────────── [SYNC] │   ← 标题行 + 手动刷新按钮
-│   CNY  ¥110.00   ▓▓▓▓▓▓░░ LINK OK  │   ← 主币种 + 迷你"信号条" + 链路状态
+│ ▸ 余额 ─────────── [刷新] [原生]   │   ← 标题行 + 手动刷新 + 风格切换
+│   CNY  ¥110.00   ▓▓▓▓▓▓░░ 连接正常  │   ← 主币种 + 信号条 + 链路状态
+│                高峰 02:14:23      │   ← 峰谷计价状态（高峰期倒计时）
 │   USD  $ 15.42                     │   ← 次币种（存在才显示，dim）
 └───────────────────────────────────┘
 
 rail 态（侧边栏折叠为 56px 竖栏，徽章退化为灯）:
 ┌────┐
-│ ●  │   ← 单色呼吸灯：绿=LINK OK，琥珀=NO SIGNAL/NO KEY
+│ ●  │   ← 单色呼吸灯：绿=`连接正常`，琥珀=异常，灰=连接中
 └────┘
 ```
 
-- 信号条（`▓▓▓▓▓▓░░`）不是装饰进度条：按 `is_available`（官方字段"余额是否可用"）渲染满/断两种形态——**结构编码真实信息**。
+- 信号条不是装饰进度条：余额可用渲染 `▓▓▓▓▓▓░░`，不可用渲染 `░░░░░░▓▓`，按官方 `is_available` 字段切换——**结构编码真实信息**。
 - rail 态放弃文字、只留状态灯——折叠时没人读得清数字，灯是唯一有意义的信息。
 
 ### 2.4 签名元素（只花一次大胆）
@@ -64,21 +65,24 @@ rail 态（侧边栏折叠为 56px 竖栏，徽章退化为灯）:
 
 - `prefers-reduced-motion: reduce` 时：关掉余辉闪烁与呼吸灯动画，状态变化仅靠颜色切换传达。
 - 按钮 hover：辉光增强（text-shadow 抬升一档），无位移。
-- 呼吸灯：4s 周期、透明度 0.6↔1.0，弱到不引起注意。
+- 呼吸灯：4s 周期、透明度 0.55↔1.0，弱到不引起注意。
 
 ## 3. 文案（终端口令式，短促、动词化）
 
 | 元素 | 文案 |
 |---|---|
-| 标题 | `▸ BALANCE` |
-| 刷新按钮 | `SYNC`（点击即强制穿透缓存刷新） |
-| 链路正常 | `LINK OK` |
-| 接口失败 | `NO SIGNAL`（琥珀色） |
-| 未配置 key | `NO KEY`（琥珀色） |
+| 标题 | `▸ 余额` |
+| 刷新按钮 | `刷新`（点击即强制穿透缓存刷新） |
+| 链路正常 | `连接正常` |
+| 连接中 | `LINK…`（灰灯，不假装健康） |
+| 接口失败 | `无信号`（琥珀色） |
+| 未配置 key | `未配置密钥`（琥珀色） |
 | 陈旧数据 | 状态行追加 `STALE 62s`（缓存超时后仍显示旧值的诚实标注） |
-| 余额 | `CNY ¥110.00`（币种前置大写，金额字符串直传不加工） |
+| 余额 | `CNY ¥110.00`（币种前置大写，USD/EUR/GBP 使用对应符号，金额字符串直传不加工） |
+| 峰谷阶段 | `高峰 HH:MM:SS`（高峰）、`空闲`（空闲）；生效前按窗口预览，tooltip 标注计费起点 |
+| 风格切换 | `原生`（切原生）/ `矩阵`（切回 Matrix） |
 
-错误态是**指路**而非致歉：`NO KEY → 在 dsh 凭证中配置 DEEPSEEK_API_KEY`（tooltip 一句话指路，见 frontend-design skill 的错误态准则）。
+错误态是**指路**而非致歉：`未配置密钥 → 在 dsh 凭证中配置 DEEPSEEK_API_KEY`（tooltip 一句话指路，见 frontend-design skill 的错误态准则）。
 
 ## 4. 对照 brief 的自检
 
@@ -86,12 +90,31 @@ rail 态（侧边栏折叠为 56px 竖栏，徽章退化为灯）:
 |---|---|
 | 是否落入"黑底荧光绿"默认套路？ | 颜色组合是 brief 钦定的；差异化在**磷光底绿（非纯黑）+ 扫描线 + 余辉衰减**的 CRT 物质感，以及琥珀色的功能化使用 |
 | 签名是否只有一个？ | 是：余辉闪烁。其余（扫描线、辉光、信号条）都是低强度支撑 |
-| 结构是否编码信息？ | 信号条编码 `is_available`；rail 态编码链路状态；`STALE` 编码缓存时效 |
+| 结构是否编码信息？ | 信号条编码 `is_available`；rail 态编码链路状态；`数据过期 Ns` 编码缓存时效；计价文本编码峰谷阶段 |
 | 是否克制？ | 无数字雨、无常驻动画、无片假名装饰、折叠态只有一个灯 |
 
 ## 5. 技术落点（对应官方机制）
 
 - 组件：React 函数组件（web profile 的 React 18 peer 环境）
 - 挂载：`ctx.slots.register(options, component)` 注册到 `sidebar.footer.action`（`kind: 'list'`），接收 `{ wide }` 区分宽/窄两态
-- 数据：订阅 host 侧余额事件/RPC（M2 接 `dsh-api-remotes` 通道），本组件不直接 fetch 官方接口
-- 样式：组件内 `<style>` 或 CSS-in-JS 均不引外部资源；类名加 `bm-` 前缀防与 shell 冲突
+- 数据：host 半通过 TYPERT strict 注册 `balance/get`、`balance/refresh`；客户端用官方 RPC 公开协议直调（client-request 信封），不直接 fetch 官方接口
+- 样式：组件内注入 `<style>`，不引外部资源；Matrix 类名加 `bm-` 前缀，原生风格复用 dsh 主题 CSS 变量；风格选择保存在 `localStorage`
+
+
+## 6. 原生风格与峰谷计价（新增）
+
+### 6.1 dsh 原生风格
+
+- 触发：wide 态点 `矩阵` 按钮；Matrix 态点 `原生` 按钮。
+- 视觉：去掉扫描线/辉光/荧光绿，使用 `var(--dsw-alias-label-primary, …)` 等
+  dsh 官方主题变量并带中性回退值；保留相同的余额、`刷新`、状态与计价信息层级。
+- rail 态：Matrix 为磷光呼吸灯，原生为 6px 主题色圆点；初始未知态为灰色。
+
+### 6.2 峰谷计价状态
+
+- 规则来源：官方价格页；高峰 = 北京时间 09:00-12:00、14:00-18:00，其余空闲。
+  2026-08-17 00:00 起正式计费；生效前同样按窗口预览，tooltip 标注生效时间。
+- host 用 UTC+8 计算 `phase` / `nextChangeAt` / `peakRemainingMs`，随
+  `BalanceClientWire` 下发给徽章；客户端用 `observedAt` 校正倒计时。
+- 状态栏显示 `高峰 HH:MM:SS`（倒计时到空闲）/ `空闲`；
+  阶段切换时刻客户端会额外触发一次刷新。

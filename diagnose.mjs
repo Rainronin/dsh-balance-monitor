@@ -1,6 +1,6 @@
 /**
  * 诊断脚本：用真实 cordis 运行时 + 真实 TimerService 挂载本插件，
- * 验证 apply → BalanceRemoteService 构造 → 工具注册 的完整链路。
+ * 验证插件挂载 → BalanceRemoteService 构造 → 工具注册 → 服务可见 的完整链路。
  */
 import { Context, Service } from '@deepseek-ai/cordis'
 import TimerService from '@deepseek-ai/cordis-plugin-timer'
@@ -19,15 +19,15 @@ class MockTools extends Service {
 }
 
 const plugin = await import('./lib/index.js')
-console.log('模块导出:', Object.keys(plugin).join(', '))
-console.log('inject:', JSON.stringify(plugin.inject))
 // loader 会做 exports.default ?? exports 提升；此处模拟同样语义
 const pluginBody = plugin.default ?? plugin
+console.log('模块导出:', Object.keys(plugin).join(', '))
+console.log('inject:', JSON.stringify(pluginBody.inject))
 
 const root = new Context()
-root.plugin(MockCredentials)
-root.plugin(MockTools)
-root.plugin(TimerService)
+await root.plugin(MockCredentials)
+await root.plugin(MockTools)
+await root.plugin(TimerService)
 
 try {
   await root.plugin(pluginBody, {})
@@ -47,17 +47,21 @@ console.log('balance 服务存在:', root.get('balance') !== undefined)
 
 // 直接 new 服务类：同步构造，任何错误直接可见
 const root2 = new Context()
-root2.plugin(MockCredentials)
-root2.plugin(MockTools)
-root2.plugin(TimerService)
-try {
-  const instance = new plugin.BalanceRemoteService(root2, {})
-  console.log('直接 new 成功，工具数:', root2.get('tools').registered.length)
-  console.log('balance 服务已注册:', root2.get('balance') !== undefined)
-  console.log('remote 方法:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)).join(', '))
-} catch (e) {
-  console.error('直接 new 失败:', e)
-}
+await root2.plugin(MockCredentials)
+await root2.plugin(MockTools)
+await root2.plugin(TimerService)
+const instance = new plugin.BalanceRemoteService(root2, {
+  apiKeyEnv: 'DEEPSEEK_API_KEY',
+  cacheTtlMs: 30_000,
+  pollIntervalMs: 30_000,
+  injectEveryTurn: false,
+  requestTimeoutMs: 5_000,
+})
+console.log('直接 new 成功，工具数:', root2.get('tools').registered.length)
+console.log('balance 服务已注册:', root2.get('balance') !== undefined)
+console.log('remote 方法:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)).join(', '))
+console.log('默认 injectEveryTurn:', instance.config.injectEveryTurn)
 
+await root2.fiber.dispose()
 await root.fiber.dispose()
 process.exit(0)

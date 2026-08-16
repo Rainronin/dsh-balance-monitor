@@ -2,9 +2,11 @@
 
 [English](#english) | [中文](#中文)
 
-A DeepSeek Harness plugin that monitors your DeepSeek API account balance: official `/user/balance` snapshots, in-session queries, per-turn context injection, and a **Matrix-style sidebar badge**.
+A DeepSeek Harness plugin that monitors your DeepSeek API account balance: official `/user/balance` snapshots, in-session queries, per-turn context injection, a **Matrix/native dual-style sidebar badge**, and Beijing-time **peak/off-peak pricing status**.
 
-![运行截图](assets/screenshot.png)
+| Matrix CRT 风格 | dsh 原生风格 |
+|---|---|
+| ![Matrix CRT 风格](assets/screenshot-matrix.png) | ![dsh 原生风格](assets/screenshot-native.png) |
 
 ---
 
@@ -17,9 +19,11 @@ A DeepSeek Harness plugin that monitors your DeepSeek API account balance: offic
 |---|---|
 | 💬 In-session query | `ds_balance` tool: the agent can fetch the official balance snapshot anytime (`force: true` bypasses the cache) |
 | 🔄 Optional per-turn injection | Fresh balance can be injected into the model context before every turn (off by default — the badge + `ds_balance` tool already cover it; cache-only read, never blocks the conversation) |
-| 🖥️ Sidebar badge | Matrix green-phosphor CRT style: `▸ BALANCE CNY ¥32.81 · LINK OK`, SYNC button for on-demand refresh, 30s auto polling, rail state collapses into a status lamp |
+| 🖥️ Sidebar badge | Matrix green-phosphor CRT style: `▸ 余额 CNY ¥32.81 · 连接正常`, `刷新` button for on-demand refresh, 30s auto polling, rail state collapses into a status lamp |
 | 🔐 Zero-config key | Reuses `DEEPSEEK_API_KEY` from dsh's credential service (never written to disk, never logged) |
-| 💱 Multi-currency | CNY/USD both listed (CNY first); amounts stay strings end-to-end, no float math |
+| 💱 Multi-currency | CNY/USD both listed (CNY first, `$`/`€`/`£` rendered per currency); amounts stay strings end-to-end, no float math |
+| ⛰️ Peak/off-peak pricing | Shows `高峰 HH:MM:SS` / `空闲` in the status bar; during peak hours it counts down to the next off-peak period (Beijing time). Before 2026-08-17 the same windows are previewed, with the official billing start shown in the tooltip. |
+| 🎨 UI style switch | `原生`/`矩阵` button toggles between the Matrix CRT badge and a native dsh look |
 | 🛡️ Rate-limit friendly | 30s TTL cache + request serialization (at most one in-flight request) + 5s timeout |
 
 ### Installation
@@ -55,9 +59,11 @@ dsh --profile web --dump-config
 查一下 DeepSeek 余额 / check my DeepSeek balance
 ```
 
-**Sidebar badge** — at the sidebar footer next to Settings: `SYNC` force-refreshes
-past the cache; polling refreshes every 30s; the collapsed (rail) state shows a
-single status lamp (green = LINK OK, amber = degraded).
+**Sidebar badge** — at the sidebar footer next to Settings: `刷新` force-refreshes
+past the cache; polling follows the host-configured interval (30s by default);
+the collapsed (rail) state shows a single status lamp (green = `连接正常`,
+amber = degraded). The `原生`/`矩阵` button switches between the Matrix CRT badge
+and a native dsh style; the choice is remembered in `localStorage`.
 
 ### Configuration
 
@@ -82,10 +88,24 @@ Override in the profile's `cordis.patch.yml`:
 
 | State | Behavior |
 |---|---|
-| No API key configured | Tool returns a Chinese hint; badge shows amber `NO KEY` |
+| No API key configured | Tool returns a Chinese hint; badge shows amber `未配置密钥` |
 | API failure + stale cache | Last snapshot is returned, marked "snapshot expired Ns (last refresh failed, retrying)" |
-| API failure + no cache | The API error (HTTP status) is surfaced; badge shows amber `NO SIGNAL` |
+| API failure + no cache | The real failure (HTTP status / network / timeout / bad response) is surfaced; badge shows amber `无信号` |
+| Invalid or rejected API key | Tool returns the real reason; badge shows amber `未配置密钥` |
 | Injection-time API failure | Silent degradation: nothing injected, conversation unaffected |
+
+### Peak/off-peak pricing status
+
+The official pricing page defines peak hours as **Beijing time 09:00-12:00 and
+14:00-18:00**; all other hours are off-peak. The new pricing takes effect at
+**2026-08-17 00:00 Beijing time**. The host computes the current phase and the
+badge shows:
+
+| Phase | Status text |
+|---|---|
+| Peak | `高峰 02:14:23` — counts down to the off-peak period |
+| Off-peak | `空闲` |
+| Before 2026-08-17 | Same windows are previewed; the tooltip notes `2026-08-17 00:00` as the billing start |
 
 ### Architecture
 
@@ -93,14 +113,15 @@ Override in the profile's `cordis.patch.yml`:
 host half (Node)
   BalanceRemoteService (service key `balance`; loader mounts the default-exported class)
   ├─ credential lookup → GET https://api.deepseek.com/user/balance → 30s TTL cache + serialization
-  ├─ ds_balance tool + agent/pre-step injection + 30s polling
+  ├─ ds_balance tool + optional agent/pre-step injection + configurable polling
+  ├─ peak/off-peak pricing state computed on Beijing time (09:00-12:00, 14:00-18:00 peak)
   └─ typert-host.js: hand-written TYPERT strict manifest (exported as ./typert,
       registered by typert-loader; api-gateway claims /api/balance/* via the strict definition)
 
 browser half (client.tsx → lib/client.js, wrapped in the official __ModuleLoader__ shell)
-  ├─ sidebar.footer.action slot: Matrix badge (wide/rail states)
+  ├─ sidebar.footer.action slot: Matrix/native dual-style badge (wide/rail states)
   └─ data channel: direct calls over the official RPC protocol (POST /api/balance/<method>,
-      client-request envelope), 30s polling + SYNC force refresh
+      client-request envelope), host-configured polling + `刷新` force refresh + phase-transition refresh
 ```
 
 The third-party Typert Remote client path (`$mount` contribution → namespace
@@ -112,17 +133,18 @@ side keeps the official TYPERT strict registration.
 
 ```sh
 npm install            # toolchain (typescript/pnpm + type deps)
-npm run build          # tsc (host ESM) + tsc (client CJS) + wrap-client shell + full-chain self-check
+npm run build          # clean + tsc (host ESM/client CJS) + wrap-client + RPC/typert self-checks
 node diagnose.mjs      # local cordis integration diagnosis (mock services)
 dsh plugin --profile web add .   # link install
 ```
 
-Build notes: the browser half is compiled to CommonJS by tsc, then wrapped by
-`wrap-client.mjs` into the official `window.__ModuleLoader__.load` registration
-shell (same shape as official dsh-client-ui-* artifacts, served by
-dsh-client-modules as `/plugins/<id>/client.js`); `verify-client.mjs` executes
-the final bundle in a VM and validates registration, slot mounting, and the RPC
-wire protocol end to end.
+Build notes: `npm run build` cleans `lib/` first, compiles the host half as ESM
+and the browser half as CommonJS, wraps the client with `wrap-client.mjs` into
+the official `window.__ModuleLoader__.load` shell (same shape as official
+dsh-client-ui-* artifacts, served by dsh-client-modules as
+`/plugins/<id>/client.js`), then runs `verify-client.mjs` (bundle registration,
+slot mounting, RPC envelope and `rpcId` echo) and `verify-typert.mjs` (strict
+codec positive/negative cases).
 
 ### Further reading
 
@@ -133,7 +155,7 @@ wire protocol end to end.
 <a id="中文"></a>
 ## 中文
 
-DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + Matrix 风格侧边栏徽章。
+DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/balance` 接口快照 + 会话内查询 + Matrix/原生双风格侧边栏徽章 + 北京时间峰谷计价状态。
 
 ### 功能
 
@@ -141,9 +163,11 @@ DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/bal
 |---|---|
 | 💬 会话内查询 | `ds_balance` 工具：agent 随时可查官方余额快照（`force: true` 穿透缓存） |
 | 🔄 每轮注入（可选） | 默认关闭。开启后每轮对话前自动把最新余额放进模型上下文（只读缓存，绝不阻塞对话）——徽章与工具已默认覆盖该信息 |
-| 🖥️ 侧边栏徽章 | Matrix 绿磷光 CRT 风格：`▸ BALANCE CNY ¥32.81 · LINK OK`，SYNC 按钮手动穿透刷新，30s 自动轮询，折叠态退化为状态灯 |
+| 🖥️ 侧边栏徽章 | Matrix 绿磷光 CRT 风格：`▸ 余额 CNY ¥32.81 · 连接正常`，`刷新` 按钮手动穿透刷新，30s 自动轮询，折叠态退化为状态灯 |
 | 🔐 零配置密钥 | 复用 dsh 凭证服务里的 `DEEPSEEK_API_KEY`（不落盘、不打印、不缓存） |
-| 💱 多币种 | CNY/USD 全列（CNY 优先），金额全程字符串透传，无浮点运算 |
+| 💱 多币种 | CNY/USD 全列（CNY 优先，USD/EUR/GBP 显示对应货币符号），金额全程字符串透传，无浮点运算 |
+| ⛰️ 峰谷计价状态 | 状态栏显示 `高峰 HH:MM:SS` / `空闲`；高峰期实时倒计时到空闲阶段（北京时间）。2026-08-17 前按同一窗口预览，tooltip 标注正式计费生效时间 |
+| 🎨 UI 风格切换 | `原生`/`矩阵` 按钮在 Matrix CRT 与 dsh 原生风格之间切换，选择保存在 `localStorage` |
 | 🛡️ 限流友好 | 30s TTL 缓存 + 请求串行化（同一时刻最多一个在途请求）+ 5s 超时 |
 
 ### 安装
@@ -178,8 +202,10 @@ dsh --profile web --dump-config
 帮我查一下 DeepSeek 余额
 ```
 
-**侧边栏徽章**——侧边栏底部（Settings 旁）：`SYNC` 按钮穿透缓存立即刷新；
-30s 自动轮询；折叠态（rail）显示单色状态灯（绿 = LINK OK，琥珀 = 异常）。
+**侧边栏徽章**——侧边栏底部（Settings 旁）：`刷新` 按钮穿透缓存立即刷新；
+轮询间隔跟随 host 配置（默认 30s）；折叠态（rail）显示单色状态灯（绿 = `连接正常`，
+琥珀 = 异常）。`原生`/`矩阵` 按钮在 Matrix CRT 徽章与 dsh 原生风格之间切换，选择
+保存在 `localStorage`。
 
 ### 配置
 
@@ -204,10 +230,22 @@ dsh --profile web --dump-config
 
 | 状态 | 表现 |
 |---|---|
-| 未配置 key | 工具返回中文提示；徽章显示琥珀 `NO KEY` |
+| 未配置 key | 工具返回中文提示；徽章显示琥珀 `未配置密钥` |
 | 接口失败 + 有旧缓存 | 返回最后一次快照并标注"快照已过期 Ns（最近一次刷新失败，自动重试中）" |
-| 接口失败 + 无缓存 | 返回接口错误（HTTP 状态码）；徽章显示琥珀 `NO SIGNAL` |
+| 接口失败 + 无缓存 | 返回真实失败原因（HTTP 状态码 / 网络 / 超时 / 响应格式）；徽章显示琥珀 `无信号` |
+| key 无效或未授权 | 返回真实原因；徽章显示琥珀 `未配置密钥` |
 | 每轮注入时接口失败 | 静默降级：不注入、不打断对话 |
+
+### 峰谷计价状态
+
+官方价格页定义高峰时段为**北京时间 09:00-12:00、14:00-18:00**，其余为空闲；
+新计价于 **2026-08-17 00:00 北京时间**生效。host 计算当前阶段，徽章显示：
+
+| 阶段 | 状态栏 |
+|---|---|
+| 高峰 | `高峰 02:14:23`——倒计时到进入空闲阶段 |
+| 空闲 | `空闲` |
+| 2026-08-17 前 | 按同一窗口预览；tooltip 标注 `2026-08-17 00:00` 为正式计费起点 |
 
 ### 架构
 
@@ -215,14 +253,15 @@ dsh --profile web --dump-config
 host 半（Node）
   BalanceRemoteService（服务键 balance，loader 行直接挂载 default 导出类）
   ├─ 凭证解析 → GET https://api.deepseek.com/user/balance → 30s TTL 缓存 + 串行化
-  ├─ ds_balance 工具 + 30s 轮询（每轮注入为可选项，默认关闭）
+  ├─ ds_balance 工具 + 可配置轮询（每轮注入为可选项，默认关闭）
+  ├─ 峰谷计价状态：按北京时间 09:00-12:00、14:00-18:00 计算高峰
   └─ typert-host.js：手写 TYPERT strict 元数据（./typert 导出，typert-loader 注册，
       api-gateway 按 strict 定义认领 /api/balance/* 端点）
 
 browser 半（client.tsx → lib/client.js，__ModuleLoader__ 注册壳）
-  ├─ sidebar.footer.action slot：Matrix 徽章（wide/rail 双态）
+  ├─ sidebar.footer.action slot：Matrix/原生双风格徽章（wide/rail 双态）
   └─ 数据通道：官方 RPC 公开协议直调（POST /api/balance/<method>，
-      client-request 信封），30s 轮询 + SYNC 穿透刷新
+      client-request 信封），host 配置轮询 + `刷新` 穿透刷新 + 阶段切换即时刷新
 ```
 
 第三方 Typert Remote 客户端链路（`$mount` 贡献 → 命名空间服务）在本机环境实测
@@ -233,15 +272,16 @@ host 端严格保留官方 TYPERT strict 注册路径。
 
 ```sh
 npm install            # 装工具链（typescript/pnpm，含类型依赖）
-npm run build          # tsc（host ESM）+ tsc（client CJS）+ wrap-client 包壳 + 全链路自检
+npm run build          # clean + tsc（host ESM/client CJS）+ wrap-client 包壳 + RPC/typert 自检
 node diagnose.mjs      # 本地 cordis 集成诊断（mock 服务验证工具注册与服务可见性）
 dsh plugin --profile web add .   # link 安装
 ```
 
-构建说明：browser 半由 tsc 编译成 CommonJS 后经 `wrap-client.mjs` 包进官方
-`window.__ModuleLoader__.load` 注册壳（与官方 dsh-client-ui-* 产物同构，
-由 dsh-client-modules 服务为 `/plugins/<id>/client.js`）；`verify-client.mjs`
-在 VM 中执行最终 bundle，全链路验证注册、slot 挂载与 RPC 直调协议。
+构建说明：`npm run build` 先清空 `lib/`，host 半编译为 ESM、browser 半编译为
+CommonJS，再经 `wrap-client.mjs` 包进官方 `window.__ModuleLoader__.load` 注册壳
+（与官方 dsh-client-ui-* 产物同构，由 dsh-client-modules 服务为
+`/plugins/<id>/client.js`）；随后 `verify-client.mjs` 验证 bundle 注册、slot
+挂载、RPC 信封与 `rpcId` 回显，`verify-typert.mjs` 验证 strict codec 正反例。
 
 ### 延伸阅读
 
