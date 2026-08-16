@@ -18,7 +18,7 @@ class MockTools extends Service {
   register(def) { this.registered.push(def); return () => {} }
 }
 
-const plugin = await import('./lib/index.js')
+const plugin = await import('../lib/index.js')
 // loader 会做 exports.default ?? exports 提升；此处模拟同样语义
 const pluginBody = plugin.default ?? plugin
 console.log('模块导出:', Object.keys(plugin).join(', '))

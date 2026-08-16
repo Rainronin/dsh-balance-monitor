@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { TYPERT } from './typert-host.js'
+import { TYPERT } from '../typert/typert-host.js'
 
 // TYPERT strict manifest 正反例自检：防止手写 codec 与 src/types.ts 漂移
 const invocations = TYPERT.invocations

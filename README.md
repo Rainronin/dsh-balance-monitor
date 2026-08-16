@@ -118,7 +118,7 @@ host half (Node)
   ├─ credential lookup → GET https://api.deepseek.com/user/balance → 30s TTL cache + serialization
   ├─ ds_balance tool + optional agent/pre-step injection + configurable polling
   ├─ peak/off-peak pricing state computed on Beijing time (09:00-12:00, 14:00-18:00 peak)
-  └─ typert-host.js: hand-written TYPERT strict manifest (exported as ./typert,
+  └─ typert/typert-host.js: hand-written TYPERT strict manifest (exported as ./typert,
       registered by typert-loader; api-gateway claims /api/balance/* via the strict definition)
 
 browser half (client.tsx → lib/client.js, wrapped in the official __ModuleLoader__ shell)
@@ -137,21 +137,21 @@ side keeps the official TYPERT strict registration.
 ```sh
 npm install            # toolchain (typescript/pnpm + type deps)
 npm run build          # clean + tsc (host ESM/client CJS) + wrap-client + RPC/typert self-checks
-node diagnose.mjs      # local cordis integration diagnosis (mock services)
+node scripts/diagnose.mjs # local cordis integration diagnosis (mock services)
 dsh plugin --profile web add .   # link install
 ```
 
 Build notes: `npm run build` cleans `lib/` first, compiles the host half as ESM
-and the browser half as CommonJS, wraps the client with `wrap-client.mjs` into
+and the browser half as CommonJS, wraps the client with `scripts/wrap-client.mjs` into
 the official `window.__ModuleLoader__.load` shell (same shape as official
 dsh-client-ui-* artifacts, served by dsh-client-modules as
-`/plugins/<id>/client.js`), then runs `verify-client.mjs` (bundle registration,
-slot mounting, RPC envelope and `rpcId` echo) and `verify-typert.mjs` (strict
+`/plugins/<id>/client.js`), then runs `scripts/verify-client.mjs` (bundle registration,
+slot mounting, RPC envelope and `rpcId` echo) and `scripts/verify-typert.mjs` (strict
 codec positive/negative cases).
 
 ### Further reading
 
-- [`UI设计构思.md`](UI设计构思.md) (Chinese): Matrix visual spec (phosphor CRT token system)
+- [`docs/UI设计构思.md`](docs/UI设计构思.md) (Chinese): Matrix visual spec (phosphor CRT token system)
 
 ---
 
@@ -261,7 +261,7 @@ host 半（Node）
   ├─ 凭证解析 → GET https://api.deepseek.com/user/balance → 30s TTL 缓存 + 串行化
   ├─ ds_balance 工具 + 可配置轮询（每轮注入为可选项，默认关闭）
   ├─ 峰谷计价状态：按北京时间 09:00-12:00、14:00-18:00 计算高峰
-  └─ typert-host.js：手写 TYPERT strict 元数据（./typert 导出，typert-loader 注册，
+  └─ typert/typert-host.js：手写 TYPERT strict 元数据（./typert 导出，typert-loader 注册，
       api-gateway 按 strict 定义认领 /api/balance/* 端点）
 
 browser 半（client.tsx → lib/client.js，__ModuleLoader__ 注册壳）
@@ -279,16 +279,16 @@ host 端严格保留官方 TYPERT strict 注册路径。
 ```sh
 npm install            # 装工具链（typescript/pnpm，含类型依赖）
 npm run build          # clean + tsc（host ESM/client CJS）+ wrap-client 包壳 + RPC/typert 自检
-node diagnose.mjs      # 本地 cordis 集成诊断（mock 服务验证工具注册与服务可见性）
+node scripts/diagnose.mjs # 本地 cordis 集成诊断（mock 服务验证工具注册与服务可见性）
 dsh plugin --profile web add .   # link 安装
 ```
 
 构建说明：`npm run build` 先清空 `lib/`，host 半编译为 ESM、browser 半编译为
-CommonJS，再经 `wrap-client.mjs` 包进官方 `window.__ModuleLoader__.load` 注册壳
+CommonJS，再经 `scripts/wrap-client.mjs` 包进官方 `window.__ModuleLoader__.load` 注册壳
 （与官方 dsh-client-ui-* 产物同构，由 dsh-client-modules 服务为
-`/plugins/<id>/client.js`）；随后 `verify-client.mjs` 验证 bundle 注册、slot
-挂载、RPC 信封与 `rpcId` 回显，`verify-typert.mjs` 验证 strict codec 正反例。
+`/plugins/<id>/client.js`）；随后 `scripts/verify-client.mjs` 验证 bundle 注册、slot
+挂载、RPC 信封与 `rpcId` 回显，`scripts/verify-typert.mjs` 验证 strict codec 正反例。
 
 ### 延伸阅读
 
-- [`UI设计构思.md`](UI设计构思.md)：Matrix 视觉规范（磷光 CRT token 系统）
+- [`docs/UI设计构思.md`](docs/UI设计构思.md)：Matrix 视觉规范（磷光 CRT token 系统）

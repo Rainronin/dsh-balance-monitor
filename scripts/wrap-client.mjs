@@ -28,5 +28,5 @@ ${indented}
 writeFileSync('lib/client.js', wrapper)
 // types.ts 是纯类型模块；client 的 CommonJS 编译会输出无用的 lib/types.js，
 // 且与 package.json 的 "type": "module" 冲突，构建后移除。
-rmSync(fileURLToPath(new URL('./lib/types.js', import.meta.url)), { force: true })
+rmSync(fileURLToPath(new URL('../lib/types.js', import.meta.url)), { force: true })
 console.log(`lib/client.js wrapped (${wrapper.length} bytes)`)

@@ -1,6 +1,5 @@
 node_modules/
 *.log
 .DS_Store
-开发计划.md
-排障记录.md
-_dshfind.html
+docs/开发计划.md
+docs/排障记录.md

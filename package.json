@@ -31,22 +31,21 @@
       "default": "./lib/client.js"
     },
     "./typert": {
-      "types": "./typert-host.d.ts",
-      "default": "./typert-host.js"
+      "types": "./typert/typert-host.d.ts",
+      "default": "./typert/typert-host.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
-    "typert-host.js",
-    "typert-host.d.ts",
+    "typert",
     "cordis.patch.yml",
     "assets",
-    "UI设计构思.md"
+    "docs/UI设计构思.md"
   ],
   "scripts": {
-    "clean": "node clean.mjs",
-    "build": "npm run clean && tsc && tsc -p tsconfig.client.json && node wrap-client.mjs && node verify-client.mjs && node verify-typert.mjs",
+    "clean": "node scripts/clean.mjs",
+    "build": "npm run clean && tsc && tsc -p tsconfig.client.json && node scripts/wrap-client.mjs && node scripts/verify-client.mjs && node scripts/verify-typert.mjs",
     "prepack": "npm run build"
   },
   "dsh": {
