@@ -23,6 +23,7 @@ A DeepSeek Harness plugin that monitors your DeepSeek API account balance: offic
 | 🔐 Zero-config key | Reuses `DEEPSEEK_API_KEY` from dsh's credential service (never written to disk, never logged) |
 | 💱 Multi-currency | CNY/USD both listed (CNY first, `$`/`€`/`£` rendered per currency); amounts stay strings end-to-end, no float math |
 | ⛰️ Peak/off-peak pricing | Shows `高峰 HH:MM:SS` / `空闲` in the status bar; during peak hours it counts down to the next off-peak period (Beijing time). Before 2026-08-17 the same windows are previewed, with the official billing start shown in the tooltip. |
+| 💰 Session cost | The sidebar badge also shows the current conversation's estimated cumulative cost (`本会话 ¥xx.xx`), calculated from official DeepSeek V4 peak/off-peak pricing; it follows the currently selected session automatically |
 | 🎨 UI style switch | `原生`/`矩阵` button toggles between the Matrix CRT badge and a native dsh look |
 | 🛡️ Rate-limit friendly | 30s TTL cache + request serialization (at most one in-flight request) + 5s timeout |
 
@@ -66,7 +67,10 @@ dsh --profile web --dump-config
 past the cache; polling follows the host-configured interval (30s by default);
 the collapsed (rail) state shows a single status lamp (green = `连接正常`,
 amber = degraded). The `原生`/`矩阵` button switches between the Matrix CRT badge
-and a native dsh style; the choice is remembered in `localStorage`.
+and a native dsh style; the choice is remembered in `localStorage`. When a
+conversation is selected, the badge also shows `本会话 ¥xx.xx` — the estimated
+cumulative cost of that conversation, calculated from official DeepSeek V4
+peak/off-peak pricing; switching conversations switches the cost automatically.
 
 ### Configuration
 
@@ -118,6 +122,8 @@ host half (Node)
   ├─ credential lookup → GET https://api.deepseek.com/user/balance → 30s TTL cache + serialization
   ├─ ds_balance tool + optional agent/pre-step injection + configurable polling
   ├─ peak/off-peak pricing state computed on Beijing time (09:00-12:00, 14:00-18:00 peak)
+  ├─ balance/sessionCost: scans the selected session's event log and estimates cumulative
+  │   cost using official DeepSeek V4 peak/off-peak prices
   └─ typert/typert-host.js: hand-written TYPERT strict manifest (exported as ./typert,
       registered by typert-loader; api-gateway claims /api/balance/* via the strict definition)
 
@@ -170,6 +176,7 @@ DeepSeek Harness 插件：DeepSeek API 账户余额监测——官方 `/user/bal
 | 🔐 零配置密钥 | 复用 dsh 凭证服务里的 `DEEPSEEK_API_KEY`（不落盘、不打印、不缓存） |
 | 💱 多币种 | CNY/USD 全列（CNY 优先，USD/EUR/GBP 显示对应货币符号），金额全程字符串透传，无浮点运算 |
 | ⛰️ 峰谷计价状态 | 状态栏显示 `高峰 HH:MM:SS` / `空闲`；高峰期实时倒计时到空闲阶段（北京时间）。2026-08-17 前按同一窗口预览，tooltip 标注正式计费生效时间 |
+| 💰 单会话费用 | 侧边栏徽章额外显示当前会话累计估算费用（`本会话 ¥xx.xx`），按 DeepSeek 官方 V4 峰谷价格计算，切换会话时自动跟随当前会话 |
 | 🎨 UI 风格切换 | `原生`/`矩阵` 按钮在 Matrix CRT 与 dsh 原生风格之间切换，选择保存在 `localStorage` |
 | 🛡️ 限流友好 | 30s TTL 缓存 + 请求串行化（同一时刻最多一个在途请求）+ 5s 超时 |
 
@@ -211,7 +218,8 @@ dsh --profile web --dump-config
 **侧边栏徽章**——侧边栏底部（Settings 旁）：`刷新` 按钮穿透缓存立即刷新；
 轮询间隔跟随 host 配置（默认 30s）；折叠态（rail）显示单色状态灯（绿 = `连接正常`，
 琥珀 = 异常）。`原生`/`矩阵` 按钮在 Matrix CRT 徽章与 dsh 原生风格之间切换，选择
-保存在 `localStorage`。
+保存在 `localStorage`。选中某个会话时，徽章还会显示 `本会话 ¥xx.xx`——按 DeepSeek
+官方 V4 峰谷价格估算的当前会话累计费用；切换会话时会自动跟随当前会话。
 
 ### 配置
 
@@ -261,6 +269,7 @@ host 半（Node）
   ├─ 凭证解析 → GET https://api.deepseek.com/user/balance → 30s TTL 缓存 + 串行化
   ├─ ds_balance 工具 + 可配置轮询（每轮注入为可选项，默认关闭）
   ├─ 峰谷计价状态：按北京时间 09:00-12:00、14:00-18:00 计算高峰
+  ├─ balance/sessionCost：扫描所选会话事件日志，按官方 DeepSeek V4 峰谷价格估算累计费用
   └─ typert/typert-host.js：手写 TYPERT strict 元数据（./typert 导出，typert-loader 注册，
       api-gateway 按 strict 定义认领 /api/balance/* 端点）
 

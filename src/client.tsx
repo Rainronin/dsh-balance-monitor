@@ -10,8 +10,13 @@
  */
 import { useEffect, useRef, useState } from 'react'
 // 仅引入类型：拿到 SlotMap 的 merge 面与 SlotComponent
-import type { SlotComponent } from '@deepseek-ai/dsh-client-ui-slots'
-import type { BalanceClientWire, BalanceErrorCode } from './types.js'
+import type { SlotComponent, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
+import type { BalanceClientWire, BalanceErrorCode, SessionCostWire } from './types.js'
+
+/** useSessions 标准 props 的最小结构面（仅取当前会话 id，避免依赖运行时内部子路径） */
+interface SessionListStateLike {
+  current?: string
+}
 
 // 声明本插件消费的侧边栏插槽键（由 @deepseek-ai/dsh-client-ui-sidebar 官方声明，
 // 此处按契约复述其形状以获取类型检查；owner 面只有折叠态 wide 布尔）
@@ -35,7 +40,7 @@ interface ClientCtx {
         order?: number
         inject: () => BadgeInjected
       },
-      component: SlotComponent<{ wide: boolean } & BadgeInjected>,
+      component: SlotComponent<{ wide: boolean } & BadgeInjected & { useSessions: SnapshotSelectorHook<SessionListStateLike> }>,
     ): () => void
   }
 }
@@ -76,10 +81,40 @@ async function callBalance(method: 'get' | 'refresh'): Promise<BalanceClientWire
   return envelope.result.value
 }
 
+/** 读取指定会话的累计费用（官方 RPC 信封，协议同 callBalance） */
+async function callSessionCost(sessionId: string): Promise<SessionCostWire> {
+  const rpcId = crypto.randomUUID()
+  const res = await fetch(`/api/balance/sessionCost`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'client-request',
+      rpcId,
+      method: 'balance/sessionCost',
+      payload: { args: { sessionId } },
+    }),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const envelope = await res.json() as {
+    type?: string
+    rpcId?: string
+    result?: { ok?: boolean; value?: SessionCostWire; error?: { message?: string } }
+  }
+  if (envelope.type !== 'server-response' || envelope.rpcId !== rpcId) {
+    throw new Error(`RPC 回显校验失败（期望 rpcId ${rpcId}）`)
+  }
+  if (envelope.result?.ok !== true || envelope.result.value === undefined) {
+    throw new Error(envelope.result?.error?.message ?? 'RPC 调用失败')
+  }
+  return envelope.result.value
+}
+
 /** 徽章注入面：由 apply 闭包提供，组件只管渲染与轮询节奏 */
 interface BadgeInjected {
   get(): Promise<BalanceClientWire>
   refresh(): Promise<BalanceClientWire>
+  sessionCost(sessionId: string): Promise<SessionCostWire>
 }
 
 /** key 类错误 → NO KEY；其余失败 → NO SIGNAL */
@@ -290,18 +325,29 @@ function loadUiStyle(): UiStyle {
 }
 
 /** 侧边栏底部余额徽章（wide 态显示读数，rail 态退化为状态灯） */
-function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
-  const { wide } = props
+function BalanceBadge(props: { wide: boolean } & BadgeInjected & { useSessions: SnapshotSelectorHook<SessionListStateLike> }) {
+  const { wide, useSessions } = props
   const [wire, setWire] = useState<BalanceClientWire | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [flash, setFlash] = useState(false)
   const [uiStyle, setUiStyle] = useState<UiStyle>(loadUiStyle)
   const [now, setNow] = useState(() => Date.now())
+  const [sessionCost, setSessionCost] = useState<SessionCostWire | null>(null)
   const prevPrimary = useRef<string | undefined>(undefined)
   const aliveRef = useRef(true)
+  const prevSessionIdRef = useRef<string | undefined>(undefined)
+  const currentSessionId = useSessions((s) => s.current)
 
   // 卸载后不再对 state 做任何更新
   useEffect(() => () => { aliveRef.current = false }, [])
+
+  // 切换会话时先清空上一会话的费用，避免新数据到达前显示旧会话金额
+  useEffect(() => {
+    if (prevSessionIdRef.current !== currentSessionId) {
+      prevSessionIdRef.current = currentSessionId
+      setSessionCost(null)
+    }
+  }, [currentSessionId])
 
   // 持久化 UI 风格
   useEffect(() => {
@@ -350,6 +396,16 @@ function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
           code: 'upstream-error',
         })
       }
+      if (currentSessionId === undefined) {
+        if (alive) setSessionCost(null)
+        return
+      }
+      try {
+        const cost = await props.sessionCost(currentSessionId)
+        if (alive) setSessionCost(cost)
+      } catch {
+        if (alive) setSessionCost(null)
+      }
     }
 
     armPoll(DEFAULT_POLL_INTERVAL_MS)
@@ -359,7 +415,7 @@ function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
       if (pollTimer !== undefined) clearInterval(pollTimer)
       if (transitionTimer !== undefined) clearTimeout(transitionTimer)
     }
-  }, [props.get])
+  }, [props.get, props.sessionCost, currentSessionId])
 
   // 高峰倒计时每秒刷新；其他阶段不需要高频渲染
   useEffect(() => {
@@ -407,15 +463,21 @@ function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
   const pricingNow = wire?.pricing?.phase === 'peak' ? now : Date.now()
   const pricing = pricingText(wire, pricingNow)
   const value = renderPrimaryValue(wire)
+  const costText = currentSessionId === undefined
+    ? null
+    : sessionCost?.ok === true && sessionCost.cost !== undefined
+      ? `本会话 ¥${sessionCost.cost}`
+      : '本会话 --'
 
   // 折叠态（rail）：只有一盏状态灯，颜色即信息
   if (!wide) {
     const dotClass = uiStyle === 'matrix' ? 'bm-lamp' : 'bm-dot'
+    const title = [railTitle(wire, pricing), costText].filter((value): value is string => value !== null).join(' · ')
     return (
       <div className={uiStyle === 'matrix' ? 'bm-crt' : 'bm-native'} style={{ display: 'inline-flex', padding: 6 }}>
         <span
           className={`${dotClass}${status.bad ? ' bm-bad' : ''}${status.unknown ? ' bm-unknown' : ''}`}
-          title={railTitle(wire, pricing)}
+          title={title}
         />
       </div>
     )
@@ -445,6 +507,7 @@ function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
             ? <span className="bm-pricing" title={pricingTitle(wire, pricingNow)}>{pricing}</span>
             : null}
         </div>
+        {costText !== null ? <div className="bm-sub" title="当前会话累计费用（DeepSeek 官方 V4 峰谷价格估算）">{costText}</div> : null}
       </div>
     )
   }
@@ -469,6 +532,7 @@ function BalanceBadge(props: { wide: boolean } & BadgeInjected) {
           ? <span className="bm-pricing" title={pricingTitle(wire, pricingNow)}>{pricing}</span>
           : null}
       </div>
+      {costText !== null ? <div className="bm-sub" title="当前会话累计费用（DeepSeek 官方 V4 峰谷价格估算）">{costText}</div> : null}
     </div>
   )
 }
@@ -482,6 +546,7 @@ export function apply(ctx: ClientCtx) {
     inject: () => ({
       get: () => callBalance('get'),
       refresh: () => callBalance('refresh'),
+      sessionCost: (sessionId: string) => callSessionCost(sessionId),
     }),
   }, BalanceBadge)
 }

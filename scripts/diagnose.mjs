@@ -18,6 +18,13 @@ class MockTools extends Service {
   register(def) { this.registered.push(def); return () => {} }
 }
 
+// mock 会话存储：诊断脚本不实际挂载会话，仅满足 service inject
+class MockSessions extends Service {
+  constructor(ctx) { super(ctx, 'sessions') }
+  get() { return undefined }
+  list() { return [] }
+}
+
 const plugin = await import('../lib/index.js')
 // loader 会做 exports.default ?? exports 提升；此处模拟同样语义
 const pluginBody = plugin.default ?? plugin
@@ -27,6 +34,7 @@ console.log('inject:', JSON.stringify(pluginBody.inject))
 const root = new Context()
 await root.plugin(MockCredentials)
 await root.plugin(MockTools)
+await root.plugin(MockSessions)
 await root.plugin(TimerService)
 
 try {
@@ -49,6 +57,7 @@ console.log('balance 服务存在:', root.get('balance') !== undefined)
 const root2 = new Context()
 await root2.plugin(MockCredentials)
 await root2.plugin(MockTools)
+await root2.plugin(MockSessions)
 await root2.plugin(TimerService)
 const instance = new plugin.BalanceRemoteService(root2, {
   apiKeyEnv: 'DEEPSEEK_API_KEY',

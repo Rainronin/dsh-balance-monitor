@@ -88,3 +88,17 @@ export interface BalanceClientWire extends BalanceWire {
   pricing?: PricingState
   pollIntervalMs?: number
 }
+
+/**
+ * 单条会话累计费用 wire（host 按官方 V4 峰谷价格估算）。
+ * cost 为人民币金额字符串（元），与余额字段一样不做浮点展示运算。
+ */
+export interface SessionCostWire {
+  ok: boolean
+  /** 对应的会话 id（失败时也可能带回） */
+  sessionId?: string
+  /** 本次会话估算总费用（元，字符串） */
+  cost?: string
+  /** 失败原因（ok=false 时） */
+  error?: string
+}

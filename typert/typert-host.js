@@ -43,6 +43,20 @@ const balanceClientWireCodec = {
   schema: BalanceClientWireSchema,
 }
 
+/** 单条会话费用 wire（与 src/types.ts 的 SessionCostWire 一致） */
+const SessionCostWireSchema = z.object({
+  ok: z.boolean(),
+  sessionId: z.string().optional(),
+  cost: z.string().optional(),
+  error: z.string().optional(),
+}).readonly()
+
+const sessionCostWireCodec = {
+  mode: 'strict',
+  typeSymbol: 'dsh-balance-monitor#SessionCostWire',
+  schema: SessionCostWireSchema,
+}
+
 export const TYPERT = {
   package: '@rainronin/dsh-balance-monitor',
   face: 'host',
@@ -65,6 +79,26 @@ export const TYPERT = {
       invocation: { kind: 'direct' },
       parameters: [],
       result: balanceClientWireCodec,
+    },
+    {
+      id: 'dsh-balance-monitor#balance/sessionCost',
+      service: 'balance',
+      namespace: 'balance',
+      method: 'sessionCost',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'sessionId',
+          wire: 'sessionId',
+          source: 'json',
+          codec: {
+            mode: 'strict',
+            typeSymbol: 'dsh-balance-monitor#SessionId',
+            schema: z.string(),
+          },
+        },
+      ],
+      result: sessionCostWireCodec,
     },
   ],
   model: {

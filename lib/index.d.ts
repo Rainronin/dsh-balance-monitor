@@ -17,9 +17,10 @@
  */
 import { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
-import type { BalanceClientWire } from './types.js';
-export type { BalanceClientWire, BalanceErrorCode, BalanceInfo, BalanceSnapshot, BalanceWire, PricingPhase, PricingState, } from './types.js';
+import type { BalanceClientWire, SessionCostWire } from './types.js';
+export type { BalanceClientWire, BalanceErrorCode, BalanceInfo, BalanceSnapshot, BalanceWire, PricingPhase, PricingState, SessionCostWire, } from './types.js';
 /** 插件名（loader 诊断用） */
 export declare const name = "balance-monitor";
 export declare const Config: z<Schemastery.ObjectS<{
@@ -45,6 +46,17 @@ export declare const Config: z<Schemastery.ObjectS<{
     /** 官方接口请求超时（毫秒） */
     requestTimeoutMs: z<number, number>;
 }>>;
+/** 单条会话费用估算结果（含 token 明细，便于自检与后续展示） */
+export interface SessionCostStats {
+    costYuan: number;
+    inputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    outputTokens: number;
+    model: string | undefined;
+}
+/** 扫描一个会话的事件日志，按官方 V4 峰谷价格估算累计费用 */
+export declare function computeSessionCost(events: readonly SessionEvent[]): SessionCostStats;
 /**
  * 余额服务：缓存、轮询、工具、上下文注入、浏览器 RPC 的统一宿主。
  * 服务键 `balance` 同时是 Remote wire 命名空间。
@@ -104,6 +116,8 @@ export declare class BalanceRemoteService extends TypertRemoteService {
     get(): Promise<BalanceClientWire>;
     /** Remote：穿透缓存强制刷新（浏览器 SYNC 按钮用） */
     refresh(): Promise<BalanceClientWire>;
+    /** Remote：读取指定会话的累计费用（当前侧边栏随会话切换调用） */
+    sessionCost(sessionId: SessionId): Promise<SessionCostWire>;
 }
 /** 插件主体：loader 直接挂载 default 导出的服务类（entry ctx 注册，官方模式） */
 export default BalanceRemoteService;

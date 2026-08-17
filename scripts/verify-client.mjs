@@ -25,6 +25,12 @@ const fakeBalance = {
   pollIntervalMs: 30_000,
 }
 
+const fakeSessionCost = {
+  ok: true,
+  sessionId: 's1',
+  cost: '0.0123',
+}
+
 // 在 VM 中执行浏览器 bundle（注册壳自注册）；callBalance 用裸 fetch，故注入全局
 vm.runInNewContext(readFileSync('lib/client.js', 'utf8'), {
   window,
@@ -33,13 +39,14 @@ vm.runInNewContext(readFileSync('lib/client.js', 'utf8'), {
   fetch: async (url, init) => {
     const body = JSON.parse(String(init.body))
     fetchCalls.push({ url: String(url), body })
+    const value = body.method === 'balance/sessionCost' ? fakeSessionCost : fakeBalance
     return {
       ok: true,
       async json() {
         return {
           type: 'server-response',
           rpcId: echoRpcId ? body.rpcId : 'another-rpc-id',
-          result: { ok: true, value: fakeBalance },
+          result: { ok: true, value },
         }
       },
     }
@@ -80,9 +87,17 @@ assert.equal(fetchCalls[0].body.rpcId, 'verify-rpc-id')
 assert.equal(fetchCalls[0].body.method, 'balance/get')
 assert.deepEqual(fetchCalls[0].body.payload, { args: {} })
 
+// sessionCost：按当前会话 id 走同一官方 RPC 信封
+const cost = await injected.sessionCost('s1')
+assert.deepEqual(cost, fakeSessionCost)
+assert.equal(fetchCalls.length, 2)
+assert.equal(fetchCalls[1].url, '/api/balance/sessionCost')
+assert.equal(fetchCalls[1].body.method, 'balance/sessionCost')
+assert.deepEqual(fetchCalls[1].body.payload, { args: { sessionId: 's1' } })
+
 // rpcId 回显不一致必须拒绝，防止串包
 echoRpcId = false
 await assert.rejects(() => injected.get(), /rpcId/)
-assert.equal(fetchCalls.length, 2)
+assert.equal(fetchCalls.length, 3)
 
 console.log('客户端 bundle 注册、slot 挂载、RPC 直调与 rpcId 回显校验验证通过')

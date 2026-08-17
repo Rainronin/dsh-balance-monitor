@@ -20,6 +20,7 @@ import z from '@deepseek-ai/schemastery'
 // 该 import 仅用于把 cordis-plugin-timer 的 Context 声明合并进类型空间
 import type {} from '@deepseek-ai/cordis-plugin-timer'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -30,6 +31,7 @@ import type {
   BalanceSnapshot,
   BalanceWire,
   PricingState,
+  SessionCostWire,
 } from './types.js'
 
 export type {
@@ -40,6 +42,7 @@ export type {
   BalanceWire,
   PricingPhase,
   PricingState,
+  SessionCostWire,
 } from './types.js'
 
 /** 插件名（loader 诊断用） */
@@ -219,6 +222,75 @@ function computePricingState(now: number): PricingState {
   }
 }
 
+// ── 会话费用估算（官方 V4 峰谷价格）──────────────────────────
+/** DeepSeek 官方 V4 峰谷单价（元 / 百万 tokens），2026-08-17 起生效 */
+const DEEPSEEK_V4_PRICES = {
+  flash: {
+    peak: { cacheRead: 0.10, cacheMiss: 3.0, output: 9.0 },
+    offpeak: { cacheRead: 0.05, cacheMiss: 1.5, output: 4.5 },
+  },
+  pro: {
+    peak: { cacheRead: 0.30, cacheMiss: 9.0, output: 27.0 },
+    offpeak: { cacheRead: 0.15, cacheMiss: 4.5, output: 13.5 },
+  },
+} as const
+
+type DeepSeekV4Tier = keyof typeof DEEPSEEK_V4_PRICES
+
+/** 从模型 id 推断 V4 档位；未知模型按 Flash 估算（ponytail: 官方 V4 只有 Flash/Pro 两档） */
+function modelTierOf(model: string | undefined): DeepSeekV4Tier {
+  const id = (model ?? '').toLowerCase()
+  if (id.includes('pro')) return 'pro'
+  return 'flash'
+}
+
+/** 单条会话费用估算结果（含 token 明细，便于自检与后续展示） */
+export interface SessionCostStats {
+  costYuan: number
+  inputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  outputTokens: number
+  model: string | undefined
+}
+
+/** 扫描一个会话的事件日志，按官方 V4 峰谷价格估算累计费用 */
+export function computeSessionCost(events: readonly SessionEvent[]): SessionCostStats {
+  const stats: SessionCostStats = {
+    costYuan: 0,
+    inputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    model: undefined,
+  }
+  for (const event of events) {
+    if (event.type === 'request/context') {
+      stats.model = event.data.model
+    } else if (event.type === 'request/header' && stats.model === undefined) {
+      stats.model = event.data.header.config.model
+    } else if (event.type === 'assistant/message' && event.data.usage !== undefined) {
+      const usage = event.data.usage
+      const tier = modelTierOf(stats.model)
+      const phase = computePricingState(event.time).phase
+      const price = DEEPSEEK_V4_PRICES[tier][phase === 'peak' ? 'peak' : 'offpeak']
+      const cacheMiss = usage.inputTokens + (usage.cacheWriteTokens ?? 0)
+      const cacheRead = usage.cacheReadTokens ?? 0
+      stats.costYuan += (cacheMiss * price.cacheMiss + cacheRead * price.cacheRead + usage.outputTokens * price.output) / 1_000_000
+      stats.inputTokens += usage.inputTokens
+      stats.cacheReadTokens += cacheRead
+      stats.cacheWriteTokens += usage.cacheWriteTokens ?? 0
+      stats.outputTokens += usage.outputTokens
+    }
+  }
+  return stats
+}
+
+/** 费用数字格式化为人民币字符串（元，最多 4 位小数，去尾零） */
+function formatCostYuan(cost: number): string {
+  return cost.toFixed(4).replace(/\.?0+$/, '')
+}
+
 /**
  * 余额服务：缓存、轮询、工具、上下文注入、浏览器 RPC 的统一宿主。
  * 服务键 `balance` 同时是 Remote wire 命名空间。
@@ -227,7 +299,7 @@ function computePricingState(now: number): PricingState {
  * loader 行直接加载本模块的 default 导出类，服务因此注册在 entry ctx。
  */
 export class BalanceRemoteService extends TypertRemoteService {
-  static inject = ['credentials', 'tools', 'timer']
+  static inject = ['credentials', 'tools', 'timer', 'sessions']
   static Config = BalanceConfig
 
   /** 最近一次成功抓取的快照 */
@@ -483,6 +555,26 @@ export class BalanceRemoteService extends TypertRemoteService {
   @Remote('refresh')
   refresh(): Promise<BalanceClientWire> {
     return this.readClientWire(true)
+  }
+
+  /** Remote：读取指定会话的累计费用（当前侧边栏随会话切换调用） */
+  // ponytail: 每次按需扫描完整事件日志；若未来会话极长可改为 session-projection 增量折叠
+  @Remote('sessionCost')
+  sessionCost(sessionId: SessionId): Promise<SessionCostWire> {
+    const session = this.ctx.sessions.get(sessionId)
+    if (session === undefined) {
+      return Promise.resolve({
+        ok: false,
+        sessionId,
+        error: `会话 ${sessionId} 不存在或未挂载`,
+      })
+    }
+    const stats = computeSessionCost(session.events)
+    return Promise.resolve({
+      ok: true,
+      sessionId,
+      cost: formatCostYuan(stats.costYuan),
+    })
   }
 }
 
