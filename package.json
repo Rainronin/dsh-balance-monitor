@@ -1,6 +1,6 @@
 {
   "name": "@rainronin/dsh-balance-monitor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DeepSeek Harness 插件：DeepSeek API 余额实时监测（官方 /user/balance 快照 + ds_balance 工具 + 峰谷计价状态 + 单会话费用估算 + Matrix/原生双风格侧边栏徽章）",
   "keywords": [
     "dsh",
