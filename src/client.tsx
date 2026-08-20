@@ -542,7 +542,7 @@ export function apply(ctx: ClientCtx) {
   ctx.slots.register({
     name: 'sidebar.footer.action',
     id: 'balance-monitor',
-    order: 50,
+    order: -100, // 优先排在侧边栏底部，避免被全宽启动器（插件市场/插件面板）挤到可视区外
     inject: () => ({
       get: () => callBalance('get'),
       refresh: () => callBalance('refresh'),
